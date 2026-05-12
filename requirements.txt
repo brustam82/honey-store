@@ -1,3 +1,5 @@
 aiogram==3.7.0
 gspread
 oauth2client
+pydantic==2.7.4
+pydantic-core==2.18.4
