@@ -5,6 +5,9 @@ import os
 import gspread
 from aiogram import Bot, Dispatcher, types, F
 from aiogram.filters import CommandStart
+from aiogram.fsm.storage.memory import MemoryStorage
+from aiogram.utils.keyboard import InlineKeyboardBuilder
+from aiogram.types import ReplyKeyboardMarkup, KeyboardButton
 from google.oauth2.service_account import Credentials
 from config import BOT_TOKEN, SPREADSHEET_ID
 
@@ -12,23 +15,51 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 bot = Bot(token=BOT_TOKEN)
-dp = Dispatcher()
+dp = Dispatcher(storage=MemoryStorage())
 
-def fetch_debug():
+def get_google_client():
+    creds_dict = json.loads(os.getenv("GOOGLE_CREDENTIALS"))
+    scopes = ['https://www.googleapis.com/auth/spreadsheets', 'https://www.googleapis.com/auth/drive']
+    creds = Credentials.from_service_account_info(creds_dict, scopes=scopes)
+    return gspread.authorize(creds)
+
+def fetch_products():
     try:
-        creds_dict = json.loads(os.getenv("GOOGLE_CREDENTIALS"))
-        creds = Credentials.from_service_account_info(creds_dict, scopes=['https://www.googleapis.com/auth/spreadsheets'])
-        client = gspread.authorize(creds)
+        client = get_google_client()
         sheet = client.open_by_key(SPREADSHEET_ID).worksheet("Товары")
         data = sheet.get_all_records()
-        return f"УСПЕХ! Найдено строк: {len(data)}. Данные: {str(data)[:200]}"
+        logger.info(f"Получено данных из таблицы: {data}") # Лог для отладки
+        # Убираем жесткий фильтр на 'да', чтобы увидеть, что вообще пришло
+        return data
     except Exception as e:
-        return f"ОШИБКА: {str(e)}"
+        logger.error(f"Ошибка чтения таблицы: {e}")
+        return []
+
+def main_kb():
+    return ReplyKeyboardMarkup(keyboard=[
+        [KeyboardButton(text="🍯 Mahsulotlar ro'yhati / Перечень продукции")],
+        [KeyboardButton(text="🛒 Savatcha / Корзина")],
+        [KeyboardButton(text="📞 Aloqa ma'lumotlari / Контакты")]
+    ], resize_keyboard=True)
 
 @dp.message(CommandStart())
 async def cmd_start(message: types.Message):
-    debug_info = fetch_debug()
-    await message.answer(f"Диагностика:\n{debug_info}")
+    await message.answer("Xush kelibsiz! / Добро пожаловать!", reply_markup=main_kb())
+
+@dp.message(F.text == "🍯 Mahsulotlar ro'yhati / Перечень продукции")
+async def show_categories(message: types.Message):
+    products = fetch_products()
+    if not products:
+        await message.answer("Таблица пуста или нет доступа.")
+        return
+    
+    # Собираем категории без фильтрации по 'да'
+    categories = sorted({p["Категория"] for p in products if p.get("Категория")})
+    builder = InlineKeyboardBuilder()
+    for cat in categories:
+        builder.button(text=cat, callback_data=f"cat_{cat}")
+    builder.adjust(1)
+    await message.answer("Выберите категорию:", reply_markup=builder.as_markup())
 
 async def main():
     await bot.delete_webhook(drop_pending_updates=True)
