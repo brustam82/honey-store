@@ -28,8 +28,7 @@ def fetch_products():
         client = get_google_client()
         sheet = client.open_by_key(SPREADSHEET_ID).worksheet("Товары")
         data = sheet.get_all_records()
-        logger.info(f"Получено данных из таблицы: {data}") # Лог для отладки
-        # Убираем жесткий фильтр на 'да', чтобы увидеть, что вообще пришло
+        logger.info(f"Получено данных: {data}")
         return data
     except Exception as e:
         logger.error(f"Ошибка чтения таблицы: {e}")
@@ -52,8 +51,6 @@ async def show_categories(message: types.Message):
     if not products:
         await message.answer("Таблица пуста или нет доступа.")
         return
-    
-    # Собираем категории без фильтрации по 'да'
     categories = sorted({p["Категория"] for p in products if p.get("Категория")})
     builder = InlineKeyboardBuilder()
     for cat in categories:
@@ -61,9 +58,23 @@ async def show_categories(message: types.Message):
     builder.adjust(1)
     await message.answer("Выберите категорию:", reply_markup=builder.as_markup())
 
-async def main():
-    await bot.delete_webhook(drop_pending_updates=True)
-    await dp.start_polling(bot)
+# ✅ НОВЫЙ ОБРАБОТЧИК — показывает товары выбранной категории
+@dp.callback_query(F.data.startswith("cat_"))
+async def show_products(callback: types.CallbackQuery):
+    category = callback.data[4:]  # убираем "cat_"
+    products = fetch_products()
+    items = [p for p in products if p.get("Категория") == category]
+    
+    if not items:
+        await callback.message.answer("В этой категории нет товаров.")
+        await callback.answer()
+        return
 
-if __name__ == "__main__":
-    asyncio.run(main())
+    for p in items:
+        name = p.get("Название", "Без названия")
+        desc = p.get("Описание", "")
+        price = p.get("Цена", "")
+        
+        text = f"🍯 *{name}*\n"
+        if desc:
+            text += f"{desc}\n"
