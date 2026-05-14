@@ -5,7 +5,7 @@ import gspread
 import asyncio
 from aiogram import Bot, Dispatcher, types, F
 from aiogram.filters import CommandStart
-from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton, ReplyKeyboardMarkup, KeyboardButton, InputMediaPhoto
+from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton, ReplyKeyboardMarkup, KeyboardButton
 from google.oauth2.service_account import Credentials
 from config import BOT_TOKEN, SPREADSHEET_ID
 
@@ -47,14 +47,7 @@ async def show_products(call: types.CallbackQuery):
     cat = call.data.split("_", 1)[1]
     products = [p for p in fetch_products() if p.get('Категория') == cat]
     kb = InlineKeyboardMarkup(inline_keyboard=[[InlineKeyboardButton(text=p['Название'], callback_data=f"p_{p['Название']}_1л_1")] for p in products] + [[InlineKeyboardButton(text="⬅️ Ortga / Назад", callback_data="back_main")]])
-    
-    # Если мы переходим из карточки с фото назад к списку товаров, 
-    # нам нужно удалить сообщение с фото и отправить текстовый список
-    if call.message.photo:
-        await call.message.delete()
-        await call.message.answer(f"🛍 *{cat}:*", reply_markup=kb, parse_mode="Markdown")
-    else:
-        await call.message.edit_text(f"🛍 *{cat}:*", reply_markup=kb, parse_mode="Markdown")
+    await call.message.edit_text(f"🛍 *{cat}:*", reply_markup=kb, parse_mode="Markdown")
 
 # ИНТЕРАКТИВНАЯ КАРТОЧКА ТОВАРА
 @dp.callback_query(F.data.startswith("p_"))
@@ -65,8 +58,6 @@ async def product_detail(call: types.CallbackQuery):
     if not p: return
 
     price = p.get('Цена_Литр') if vol == "1л" else p.get('Цена_КГ')
-    photo_url = p.get('Фото') # Берет ссылку из столбца "Фото"
-    
     text = f"🍯 *{p['Название']}*\n\n{p.get('Описание', '')}\n\n💰 *Narx / Цена:* {price * count} so'm\n\n📍 *Tanlangan / Выбрано:* {count} x {vol}"
 
     kb = InlineKeyboardMarkup(inline_keyboard=[
@@ -78,21 +69,7 @@ async def product_detail(call: types.CallbackQuery):
         [InlineKeyboardButton(text="🛒 Savatga / В корзину", callback_data="add_to_cart")],
         [InlineKeyboardButton(text="⬅️ Ortga / Назад", callback_data=f"cat_{p['Категория']}")]
     ])
-
-    if photo_url:
-        if call.message.photo:
-            # Если фото уже есть, просто обновляем его и подпись (чтобы не моргало)
-            await call.message.edit_media(
-                media=InputMediaPhoto(media=photo_url, caption=text, parse_mode="Markdown"),
-                reply_markup=kb
-            )
-        else:
-            # Если фото еще нет (переход из списка), удаляем текст и шлем фото
-            await call.message.delete()
-            await call.message.answer_photo(photo=photo_url, caption=text, reply_markup=kb, parse_mode="Markdown")
-    else:
-        # Если в таблице нет ссылки на фото, работаем в текстовом режиме
-        await call.message.edit_text(text, reply_markup=kb, parse_mode="Markdown")
+    await call.message.edit_text(text, reply_markup=kb, parse_mode="Markdown")
 
 @dp.callback_query(F.data == "back_main")
 async def back_main(call: types.CallbackQuery):
