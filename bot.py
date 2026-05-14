@@ -1,11 +1,9 @@
 import logging
-import os
 import json
 import gspread
-import asyncio
 from aiogram import Bot, Dispatcher, types, F
 from aiogram.filters import CommandStart
-from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton, ReplyKeyboardMarkup, KeyboardButton
+from aiogram.types import ReplyKeyboardMarkup, KeyboardButton, InlineKeyboardMarkup, InlineKeyboardButton
 from google.oauth2.service_account import Credentials
 from config import BOT_TOKEN, SPREADSHEET_ID
 
@@ -13,11 +11,10 @@ logging.basicConfig(level=logging.INFO)
 bot = Bot(token=BOT_TOKEN)
 dp = Dispatcher()
 
+# Авторизация (использует файл google_creds.json из репозитория)
 def get_google_client():
-    creds_json = os.getenv('GOOGLE_CREDENTIALS')
-    creds_dict = json.loads(creds_json)
     scopes = ['https://www.googleapis.com/auth/spreadsheets', 'https://www.googleapis.com/auth/drive']
-    creds = Credentials.from_service_account_info(creds_dict, scopes=scopes)
+    creds = Credentials.from_service_account_file('google_creds.json', scopes=scopes)
     return gspread.authorize(creds)
 
 def fetch_products():
@@ -26,54 +23,46 @@ def fetch_products():
         sheet = client.open_by_key(SPREADSHEET_ID).worksheet("Товары")
         return [r for r in sheet.get_all_records() if str(r.get("Активен", "")).lower() == "да"]
     except Exception as e:
-        logging.error(f"Ошибка таблицы: {e}")
+        logging.error(f"Error: {e}")
         return []
+
+# Главное меню
+def main_kb():
+    return ReplyKeyboardMarkup(keyboard=[
+        [KeyboardButton(text="🍯 Mahsulotlar / Товары")],
+        [KeyboardButton(text="🛒 Savatcha / Корзина"), KeyboardButton(text="📞 Kontaktlar / Контакты")]
+    ], resize_keyboard=True)
 
 @dp.message(CommandStart())
 async def start(m: types.Message):
-    kb = ReplyKeyboardMarkup(keyboard=[[KeyboardButton(text="🍯 Mahsulotlar / Товары")]], resize_keyboard=True)
-    await m.answer("Asal_shifo botiga xush kelibsiz!", reply_markup=kb)
+    await m.answer("Xush kelibsiz! / Добро пожаловать!", reply_markup=main_kb())
 
 @dp.message(F.text == "🍯 Mahsulotlar / Товары")
-async def show_categories(m: types.Message):
+async def show_products(m: types.Message):
     products = fetch_products()
-    categories = list(set([p['Категория'] for p in products if p.get('Категория')]))
-    buttons = [[InlineKeyboardButton(text=c, callback_data=f"cat_{c}")] for c in categories]
-    kb = InlineKeyboardMarkup(inline_keyboard=buttons)
-    # Используем answer только для первого вызова
-    await m.answer("📦 *Tanlang / Выберите категорию:*", reply_markup=kb, parse_mode="Markdown")
-
-@dp.callback_query(F.data.startswith("cat_"))
-async def show_products(call: types.CallbackQuery):
-    cat = call.data.split("_", 1)[1]
-    products = [p for p in fetch_products() if p.get('Категория') == cat]
-    buttons = [[InlineKeyboardButton(text=p['Название'], callback_data=f"p_{p['Название']}")] for p in products]
-    buttons.append([InlineKeyboardButton(text="⬅️ Ortga / Назад", callback_data="back_to_main")])
-    kb = InlineKeyboardMarkup(inline_keyboard=buttons)
-    # РЕДАКТИРУЕМ сообщение
-    await call.message.edit_text(f"🛍 *{cat}:*", reply_markup=kb, parse_mode="Markdown")
-
-@dp.callback_query(F.data == "back_to_main")
-async def back_to_main(call: types.CallbackQuery):
-    products = fetch_products()
-    categories = list(set([p['Категория'] for p in products if p.get('Категория')]))
-    buttons = [[InlineKeyboardButton(text=c, callback_data=f"cat_{c}")] for c in categories]
-    kb = InlineKeyboardMarkup(inline_keyboard=buttons)
-    # РЕДАКТИРУЕМ обратно в категории
-    await call.message.edit_text("📦 *Tanlang / Выберите категорию:*", reply_markup=kb, parse_mode="Markdown")
+    kb = InlineKeyboardMarkup(inline_keyboard=[[InlineKeyboardButton(text=p['Название'], callback_data=f"p_{i}")] for i, p in enumerate(products)])
+    await m.answer("Tanlang / Выберите товар:", reply_markup=kb)
 
 @dp.callback_query(F.data.startswith("p_"))
-async def product_detail(call: types.CallbackQuery):
-    name = call.data.split("_", 1)[1]
-    p = next((item for item in fetch_products() if item['Название'] == name), None)
-    if not p: return
-    text = f"🍯 *{p['Название']}*\n\n{p.get('Описание', '')}\n\n💰 1 kg: {p.get('Цена_КГ', 0)} sum\n💧 1 l: {p.get('Цена_Литр', 0)} sum"
-    kb = InlineKeyboardMarkup(inline_keyboard=[[InlineKeyboardButton(text="⬅️ Ortga / Назад", callback_data=f"cat_{p['Категория']}") ]])
-    # РЕДАКТИРУЕМ в карточку товара
-    await call.message.edit_text(text, reply_markup=kb, parse_mode="Markdown")
+async def product_card(call: types.CallbackQuery):
+    idx = int(call.data.split("_")[1])
+    p = fetch_products()[idx]
+    
+    # Разделение описания
+    desc = p.get('Описание', 'Uz: ... | Ru: ...')
+    uz_desc, ru_desc = desc.split('|') if '|' in desc else (desc, desc)
+    
+    text = f"*{p['Название']}*\n\n{uz_desc}\n{ru_desc}\n\n"
+    
+    kb = InlineKeyboardMarkup(inline_keyboard=[
+        [InlineKeyboardButton(text=f"⚖️ 1 kg: {p['Цена_кг']} so'm", callback_data=f"buy_{idx}_kg")],
+        [InlineKeyboardButton(text=f"💧 1 l: {p['Цена_литр']} so'm", callback_data=f"buy_{idx}_l")]
+    ])
+    await call.message.answer(text, parse_mode="Markdown", reply_markup=kb)
 
 async def main():
     await dp.start_polling(bot)
 
 if __name__ == "__main__":
+    import asyncio
     asyncio.run(main())
