@@ -1,0 +1,13 @@
+{
+  "type": "service_account",
+  "project_id": "smooth-cycling-495506-r0",
+  "private_key_id": "ee568e3d4a96b2300bb12cbeeea85dba7802ae48",
+  "private_key": "-----BEGIN PRIVATE KEY-----\nMIIEvQIBADANBgkqhkiG9w0BAQEFAASCBKcwggSjAgEAAoIBAQDaJJrKfTi6QVMv\nWONhdenE/TIyyUyy3/ounF43EoVEmN75eAThU+UXNmOfKrAGJzVPaEarjuFbIG2x\nlEdotuKyXKXoVHoFxMw5toKvtsq5cxGA70y3U0R0X2Bi5ZwlrKLW7a7+9wW67mhl\nAbmuSSoWyRPWWWVy+SHO1LshpqdYQITlxAlxGjcwrQX+JPihv4NrYGMbmS45ODUe\nhyo/v1A9fYZ/hHfKnBGPRfzjorNDiGrGqa5ANLshMmSDSdt0HvyPnKUfNrGBWLjh\nZb+nyuWPcg6QWKtws0ezjRlEBSDzpC0jv5bfRqEbjnosEbG5gcLr/oxQ06PkIJHN\nfrT5/FbPAgMBAAECggEAFjyB/N8b37yV9q8YapBi9n4a1lt3soorTgIJhpKgPBhb\nLlHiKXfsU9vq9sgarl3jzMbj4UwMw8W/+MiVKOLvo9/W16J418qySLXGh5PaAWJt\n59c82jkmMrigMiSWsK5y4PbUjk/u6RmxUY6F93Kk1DLGD2UIdtpXbGZ59tmumEu3\nF6T7gVCEYAFrR15tjSOx8FGzlV+VTbiiRf57OrlONmeCI/ToG15ftgaXlod/ygjN\nbey/qoPhhFlnPGg++M1U22XDlAvM9wCQWwzwmjb+/Qxe72HsoCUQiEtBN0BIhqUW\ntnz0FhVlYGUyeYY7Y4EeMgyVnvlXQ8iGKxDwvk+bnQKBgQD8gjCpdTZXF83rUj8K\nfyTW4TrqGtFBxVc9EXMfXZTRArBLf1ftHyi1oRt43QnckIPQFoehOr51cRpwapP9\nehP2Bg0X371HPIHqHOMnseeMTZQH2vbigXimsAPWFPNAFU2eNYflFGPhZ5Yn+jhQ\nAGXexIHBa5T0WOdHM4ZFffMv7QKBgQDdKMUg29WOL64ZvaHz5lreDJV8t57p+CTz\nHzuBCWyLdw1bq5RoK7XD9IQCRJiihlBJ4Wzs9MWJcuYYZK5061XlzYliEWrt9v1r\nyAsfpbys7anVl1MvOnbJC4PW93Kbm2NJQs28Snl2/3VijJCiNRg5VZOHfM3Iz7rR\nBrhGbwMyKwKBgF7X578+r3J3FnlVIyimKQgtARv9hqvVm7bsXvlhBQycnes9oaEH\nGxtdsBvtqk6WWWxHihodHnyuRugCoCONPwIhs7lL6KRhLcrpnsjCId6pJPjuXd0m\nFFNHuaknpVZkqgrKwIhi6EE5z0Skz5H9FEZgOPyVlBVTb0tnJv/jFvzhAoGBAISv\nTC2dlq9ardJlsj+ZSZUE6b7Mj3wB03FFoLaXB9dYktwXwc8JwmCRV43gx85iVNMu\neuJjLAx9scyawwwEkSFxQeZjWsrwLzS17O6MyfjaEdXClzazlcaisPOMu+bdwCCZ\nAsPfzqX1N+DrQm7++cyUKhHUb8X10zhLFs2zFrDHAoGALk7x6XgVa6IsjC8nYF4j\nlFc4YhytStSVgRwc6Tc3CBdCBHTm/XZFyF/mLJFBnkCV9TK5/j7pFZt2seEH7XbZ\nMfF8oL2lovU0OjycLRbqu8X0sT1v9RXudAtLh+7DR81UVc0izNGNZyIsL3nGRA58\noIsBdfSB90zihXoGOyb9Bn4=\n-----END PRIVATE KEY-----\n",
+  "client_email": "honeybot-access@smooth-cycling-495506-r0.iam.gserviceaccount.com",
+  "client_id": "117959530177995722575",
+  "auth_uri": "https://accounts.google.com/o/oauth2/auth",
+  "token_uri": "https://oauth2.googleapis.com/token",
+  "auth_provider_x509_cert_url": "https://www.googleapis.com/oauth2/v1/certs",
+  "client_x509_cert_url": "https://www.googleapis.com/robot/v1/metadata/x509/honeybot-access%40smooth-cycling-495506-r0.iam.gserviceaccount.com",
+  "universe_domain": "googleapis.com"
+}
