@@ -38,7 +38,7 @@ class OrderState(StatesGroup):
 
 # ── Google Sheets ─────────────────────────────────────────────────────────────
 def get_google_client():
-    creds_json = os.getenv("GOOGLE_CREDENTIALS")
+    creds_json = os.getenv("GOOGLE_APPLICATION_CREDENTIALS")
     creds_dict = json.loads(creds_json)
     scopes = [
         "https://www.googleapis.com/auth/spreadsheets",
