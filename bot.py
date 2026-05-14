@@ -92,6 +92,18 @@ def get_cat_key(products: list) -> str:
             return key
     return "Категория"
 
+def fix_drive_url(url: str) -> str:
+    """Конвертирует ссылку Google Drive в прямую ссылку для скачивания."""
+    if not url:
+        return ""
+    if "drive.google.com/file/d/" in url:
+        try:
+            file_id = url.split("/file/d/")[1].split("/")[0]
+            return f"https://drive.google.com/uc?export=download&id={file_id}"
+        except Exception:
+            return url
+    return url
+
 def main_kb():
     return ReplyKeyboardMarkup(
         keyboard=[
@@ -216,10 +228,27 @@ async def product_view(call: types.CallbackQuery):
         return
     text = product_text(p, vol, qty)
     kb = product_kb(name, vol, qty, category)
+    photo_url = fix_drive_url(p.get("Фото_URL", "").strip())
+
     try:
-        await call.message.edit_text(text, reply_markup=kb, parse_mode="Markdown")
+        await call.message.delete()
     except Exception:
         pass
+
+    if photo_url:
+        try:
+            await call.message.answer_photo(
+                photo=photo_url,
+                caption=text,
+                reply_markup=kb,
+                parse_mode="Markdown"
+            )
+        except Exception as e:
+            logger.warning(f"Не удалось загрузить фото: {e}")
+            await call.message.answer(text, reply_markup=kb, parse_mode="Markdown")
+    else:
+        await call.message.answer(text, reply_markup=kb, parse_mode="Markdown")
+
     await call.answer()
 
 @dp.callback_query(F.data.startswith("add|"))
