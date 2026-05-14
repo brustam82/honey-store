@@ -32,7 +32,7 @@ class OrderState(StatesGroup):
     waiting_phone = State()
 
 def get_google_client():
-    creds_json = os.getenv("GOOGLE_CREDENTIALS")
+    creds_json = os.getenv("GOOGLE_CREDENTIALS") or os.getenv("GOOGLE_APPLICATION_CREDENTIALS")
     creds_dict = json.loads(creds_json)
     scopes = [
         "https://www.googleapis.com/auth/spreadsheets",
@@ -346,4 +346,4 @@ async def main():
     await dp.start_polling(bot)
 
 if __name__ == "__main__":
-    asyncio.run(main())
+    asyncio.run(main()
