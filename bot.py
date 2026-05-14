@@ -1,68 +1,65 @@
 import logging
+import os
 import json
 import gspread
+import asyncio
 from aiogram import Bot, Dispatcher, types, F
 from aiogram.filters import CommandStart
-from aiogram.types import ReplyKeyboardMarkup, KeyboardButton, InlineKeyboardMarkup, InlineKeyboardButton
+from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton, ReplyKeyboardMarkup, KeyboardButton
 from google.oauth2.service_account import Credentials
 from config import BOT_TOKEN, SPREADSHEET_ID
 
+# Инициализация
 logging.basicConfig(level=logging.INFO)
 bot = Bot(token=BOT_TOKEN)
 dp = Dispatcher()
 
-# Авторизация (использует файл google_creds.json из репозитория)
+# Функция получения данных (как у вас)
 def get_google_client():
+    creds_json = os.getenv('GOOGLE_CREDENTIALS')
+    creds_dict = json.loads(creds_json)
     scopes = ['https://www.googleapis.com/auth/spreadsheets', 'https://www.googleapis.com/auth/drive']
-    creds = Credentials.from_service_account_file('google_creds.json', scopes=scopes)
+    creds = Credentials.from_service_account_info(creds_dict, scopes=scopes)
     return gspread.authorize(creds)
 
 def fetch_products():
-    try:
-        client = get_google_client()
-        sheet = client.open_by_key(SPREADSHEET_ID).worksheet("Товары")
-        return [r for r in sheet.get_all_records() if str(r.get("Активен", "")).lower() == "да"]
-    except Exception as e:
-        logging.error(f"Error: {e}")
-        return []
+    client = get_google_client()
+    sheet = client.open_by_key(SPREADSHEET_ID).worksheet("Товары")
+    return [r for r in sheet.get_all_records() if str(r.get("Активен", "")).lower() == "да"]
 
-# Главное меню
-def main_kb():
-    return ReplyKeyboardMarkup(keyboard=[
-        [KeyboardButton(text="🍯 Mahsulotlar / Товары")],
-        [KeyboardButton(text="🛒 Savatcha / Корзина"), KeyboardButton(text="📞 Kontaktlar / Контакты")]
-    ], resize_keyboard=True)
-
-@dp.message(CommandStart())
-async def start(m: types.Message):
-    await m.answer("Xush kelibsiz! / Добро пожаловать!", reply_markup=main_kb())
-
-@dp.message(F.text == "🍯 Mahsulotlar / Товары")
-async def show_products(m: types.Message):
-    products = fetch_products()
-    kb = InlineKeyboardMarkup(inline_keyboard=[[InlineKeyboardButton(text=p['Название'], callback_data=f"p_{i}")] for i, p in enumerate(products)])
-    await m.answer("Tanlang / Выберите товар:", reply_markup=kb)
-
+# --- Ключевой обработчик карточки товара ---
 @dp.callback_query(F.data.startswith("p_"))
-async def product_card(call: types.CallbackQuery):
-    idx = int(call.data.split("_")[1])
-    p = fetch_products()[idx]
+async def product_detail(call: types.CallbackQuery):
+    # data формат: p_Название_объем_количество
+    parts = call.data.split("_")
+    name = parts[1]
+    volume = parts[2] if len(parts) > 2 else "1л"
+    count = int(parts[3]) if len(parts) > 3 else 1
     
-    # Разделение описания
-    desc = p.get('Описание', 'Uz: ... | Ru: ...')
-    uz_desc, ru_desc = desc.split('|') if '|' in desc else (desc, desc)
-    
-    text = f"*{p['Название']}*\n\n{uz_desc}\n{ru_desc}\n\n"
-    
+    p = next((item for item in fetch_products() if item['Название'] == name), None)
+    if not p: return
+
+    # Формируем текст
+    price = p.get('Цена_Литр') if volume == "1л" else p.get('Цена_КГ')
+    text = (f"🍯 *{p['Название']}*\n\n{p.get('Описание', '')}\n\n"
+            f"💰 Narx: {price} so'm\n\n"
+            f"📍 Tanlangan: {volume} — {price * count} so'm")
+
+    # Создаем клавиатуру как на вашем скриншоте
     kb = InlineKeyboardMarkup(inline_keyboard=[
-        [InlineKeyboardButton(text=f"⚖️ 1 kg: {p['Цена_кг']} so'm", callback_data=f"buy_{idx}_kg")],
-        [InlineKeyboardButton(text=f"💧 1 l: {p['Цена_литр']} so'm", callback_data=f"buy_{idx}_l")]
+        [
+            InlineKeyboardButton(text="1кг" if volume == "1л" else "✅ 1кг", callback_data=f"p_{name}_1кг_{count}"),
+            InlineKeyboardButton(text="✅ 1л" if volume == "1л" else "1л", callback_data=f"p_{name}_1л_{count}")
+        ],
+        [
+            InlineKeyboardButton(text="➖", callback_data=f"p_{name}_{volume}_{max(1, count-1)}"),
+            InlineKeyboardButton(text=str(count), callback_data="ignore"),
+            InlineKeyboardButton(text="➕", callback_data=f"p_{name}_{volume}_{count+1}")
+        ],
+        [InlineKeyboardButton(text="🛒 Savatga / В корзину", callback_data="add_to_cart")],
+        [InlineKeyboardButton(text="⬅️ Ortga / Назад", callback_data="back_to_main")]
     ])
-    await call.message.answer(text, parse_mode="Markdown", reply_markup=kb)
+    
+    await call.message.edit_text(text, reply_markup=kb, parse_mode="Markdown")
 
-async def main():
-    await dp.start_polling(bot)
-
-if __name__ == "__main__":
-    import asyncio
-    asyncio.run(main())
+# ... (остальные функции start и show_categories оставляем как были)
