@@ -52,11 +52,23 @@ def fetch_products() -> list:
         client = get_google_client()
         sheet = client.open_by_key(SPREADSHEET_ID).worksheet("Товары")
         rows = sheet.get_all_records()
-        return [
-            {str(k).strip(): str(v).strip() for k, v in r.items()}
-            for r in rows
-            if str(r.get("Активен", "")).lower() == "да"
-        ]
+
+        # Диагностика — видно в Railway logs
+        if rows:
+            logger.info(f"ЗАГОЛОВКИ ТАБЛИЦЫ: {list(rows[0].keys())}")
+            logger.info(f"ПЕРВАЯ СТРОКА: {rows[0]}")
+        else:
+            logger.warning("Таблица пуста!")
+
+        result = []
+        for r in rows:
+            clean = {str(k).strip(): str(v).strip() for k, v in r.items()}
+            активен = clean.get("Активен", "").lower().strip()
+            if активен == "да":
+                result.append(clean)
+
+        logger.info(f"Активных товаров найдено: {len(result)}")
+        return result
     except Exception as e:
         logger.error(f"Ошибка чтения таблицы: {e}")
         return []
@@ -156,20 +168,54 @@ async def cmd_start(m: types.Message, state: FSMContext):
 async def show_categories(m: types.Message):
     products = await asyncio.to_thread(fetch_products)
     if not products:
-        await m.answer("❌ Mahsulotlar topilmadi. / Товары не найдены.")
+        await m.answer(
+            "❌ Mahsulotlar topilmadi. / Товары не найдены.\n\n"
+            "Iltimos, Railway logs'ni tekshiring. / Проверьте Railway logs."
+        )
         return
-    cats = sorted({p["Категория"] for p in products if p.get("Категория")})
+
+    # Ищем ключ категории гибко (Категория / Kategoriya / Category)
+    cat_key = None
+    for key in products[0].keys():
+        if "катег" in key.lower() or "categ" in key.lower() or "kategor" in key.lower():
+            cat_key = key
+            break
+
+    if not cat_key:
+        logger.error(f"Столбец категории не найден! Ключи: {list(products[0].keys())}")
+        await m.answer("❌ Столбец 'Категория' не найден в таблице. Проверьте заголовки.")
+        return
+
+    logger.info(f"Используем ключ категории: '{cat_key}'")
+    cats = sorted({p[cat_key] for p in products if p.get(cat_key)})
+
+    if not cats:
+        await m.answer("❌ Kategoriyalar topilmadi. / Категории не найдены.")
+        return
+
     kb = InlineKeyboardMarkup(inline_keyboard=[
         [InlineKeyboardButton(text=c, callback_data=f"cat|{c}")] for c in cats
     ])
-    await m.answer("📦 *Kategoriyani tanlang / Выберите категорию:*",
-                   reply_markup=kb, parse_mode="Markdown")
+    await m.answer(
+        "📦 *Kategoriyani tanlang / Выберите категорию:*",
+        reply_markup=kb, parse_mode="Markdown"
+    )
+
+def get_cat_key(products: list) -> str:
+    """Находит ключ столбца категории в таблице"""
+    if not products:
+        return "Категория"
+    for key in products[0].keys():
+        if "катег" in key.lower() or "categ" in key.lower() or "kategor" in key.lower():
+            return key
+    return "Категория"
 
 @dp.callback_query(F.data.startswith("cat|"))
 async def show_products_in_cat(call: types.CallbackQuery):
     cat = call.data.split("|", 1)[1]
     products = await asyncio.to_thread(fetch_products)
-    items = [p for p in products if p.get("Категория") == cat]
+    cat_key = get_cat_key(products)
+    items = [p for p in products if p.get(cat_key) == cat]
     if not items:
         await call.answer("Mahsulotlar topilmadi. / Товары не найдены.", show_alert=True)
         return
@@ -185,7 +231,8 @@ async def show_products_in_cat(call: types.CallbackQuery):
 @dp.callback_query(F.data == "cats")
 async def back_to_cats(call: types.CallbackQuery):
     products = await asyncio.to_thread(fetch_products)
-    cats = sorted({p["Категория"] for p in products if p.get("Категория")})
+    cat_key = get_cat_key(products)
+    cats = sorted({p[cat_key] for p in products if p.get(cat_key)})
     kb = InlineKeyboardMarkup(inline_keyboard=[
         [InlineKeyboardButton(text=c, callback_data=f"cat|{c}")] for c in cats
     ])
